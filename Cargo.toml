@@ -1,0 +1,19 @@
+[package]
+name = "potion"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[toolchain]
+channel = "nightly"
+
+[lib]
+
+[dependencies]
+handlebars = "5.1.2"
+serde = "1.0.197"
+serde_json = "1.0.115"
+warp = "0.3.7"
+
+macros = { path = "./macros" }
