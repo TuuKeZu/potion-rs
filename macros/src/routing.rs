@@ -39,7 +39,7 @@ pub fn construct_import_tree(dir: &str, s: &mut String, l: &mut Vec<VecDeque<Str
 }
 
 pub fn construct_router_tree(l: &mut Vec<VecDeque<String>>) -> io::Result<String> {
-    let mut ts = String::from("fn router(hb: Arc<Handlebars<'static>>) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone { ");
+    let mut ts = String::from("fn router(hb: Arc<Handlebars<'static>>, pool: Arc<Pool<Postgres>>) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone { ");
 
     if let Some(tree) = l.pop() {
         if tree.len() <= 0 {
@@ -50,7 +50,7 @@ pub fn construct_router_tree(l: &mut Vec<VecDeque<String>>) -> io::Result<String
                 if i == 0 {
                     ts += &format!("warp::path(\"{}\").and(", route)
                 } else if i == tree.len() - 1 {
-                    ts += &format!("routing::{}::initialize( potion::Context::new(hb.clone(), &[{}]) )", resolve_import_path(tree.clone()), tree.iter().map(|r| format!("\"{r}\"")).collect::<Vec<String>>().join(", "));
+                    ts += &format!("routing::{}::initialize( potion::Context::new(hb.clone(), pool.clone(), &[{}]) )", resolve_import_path(tree.clone()), tree.iter().map(|r| format!("\"{r}\"")).collect::<Vec<String>>().join(", "));
                 } else {
                     ts += &format!("warp::path(\"{}\").and(", route)
                 }
@@ -69,7 +69,7 @@ pub fn construct_router_tree(l: &mut Vec<VecDeque<String>>) -> io::Result<String
                 if i == 0 {
                     ts += &format!(".or(warp::path(\"{}\").and(", route)
                 } else if i == tree.len() - 1 {
-                    ts += &format!("routing::{}::initialize( potion::Context::new(hb.clone(), &[{}]) )", resolve_import_path(tree.clone()), tree.iter().map(|r| format!("\"{r}\"")).collect::<Vec<String>>().join(", "));
+                    ts += &format!("routing::{}::initialize( potion::Context::new(hb.clone(), pool.clone(), &[{}]) )", resolve_import_path(tree.clone()), tree.iter().map(|r| format!("\"{r}\"")).collect::<Vec<String>>().join(", "));
                 } else {
                     ts += &format!("warp::path(\"{}\").and(", route)
                 }

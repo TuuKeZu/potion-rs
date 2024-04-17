@@ -9,7 +9,7 @@ mod routing;
 
 #[proc_macro]
 pub fn routing(_p: TokenStream) -> TokenStream {
-    let ts = construct_routing_system("D:\\rannasta-suomeen-rs\\src\\routing").expect("Failed to construct module tree");
+    let ts = construct_routing_system("/home/tuukk/Documents/rannasta-suomeen-rs/src/routing/").expect("Failed to construct module tree");
 
     ts.parse().unwrap()
 }
