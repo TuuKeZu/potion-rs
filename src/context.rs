@@ -10,7 +10,7 @@ use sqlx::Pool;
 
 use crate::utility::merge;
 
-
+pub type ContextRef = (Arc<Pool<Postgres>>, Arc<Handlebars<'static>>, DirLink);
 
 #[derive(Debug, Clone)]
 pub struct Context {
@@ -35,14 +35,13 @@ impl Context {
         warp::any().map(move || self.storage.clone())
     }
 
-    pub fn with_context(self) -> impl Filter<Extract = ((Arc<Pool<Postgres>>, Arc<Handlebars<'static>>, DirLink), ), Error = std::convert::Infallible> + Clone {
+    pub fn with_context(&self) -> impl Filter<Extract = (ContextRef, ), Error = std::convert::Infallible> + Clone {
         let db = self.db.clone();
         let hb = self.hb.clone();
         let storage = self.storage.clone();
 
         warp::any().map(move || (db.clone(), hb.clone(), storage.clone()) )
     }
-
 
     pub fn new(hb: Arc<Handlebars<'static>>, db: Arc<Pool<Postgres>>, path: &[&str]) -> Self {
         Self {
@@ -52,11 +51,6 @@ impl Context {
         }
     }
 
-    pub fn template(&self) -> String {
-        self.storage.get_template("index")
-    }
-
-
     pub fn import_styling(&self, name: &str) -> String {
         self.storage.get_local_file(name)
     }
@@ -65,8 +59,11 @@ impl Context {
 
 #[derive(Debug, Clone)]
 pub struct Page<T: Serialize> {
-    pub value: T,
-    template_tree: String,
+    value: Option<T>,
+    template: Option<String>,
+    parent: Option<String>,
+    child: Option<String>,
+    navigation: Option<Vec<(String, String)>>,
     local_style_tree: Vec<String>,
     global_style_tree: Vec<String>,
 }
@@ -74,17 +71,23 @@ pub struct Page<T: Serialize> {
 impl<T> Page<T> where T: Serialize {
     pub fn new(template: &str, value: T) -> Self {
         Self {
-            value,
-            template_tree: template.to_string(),
+            value: Some(value),
+            template: Some(template.to_string()),
+            parent: None,
+            child: None,
+            navigation: None,
             local_style_tree: vec![],
             global_style_tree: vec![],
         }
     }
 
-    pub fn default(template: &str, value: T) -> Self {
+    pub fn default(storage: &DirLink) -> Self {
         Self {
-            value,
-            template_tree: String::from(template),
+            value: None,
+            template: Some(storage.template()),
+            parent: Some(storage.get_static_template("base")),
+            child: None,
+            navigation: Some(storage.construct_navigation()),
             local_style_tree: vec![String::from("index.css")],
             global_style_tree: vec![String::from("index.css")],
         }
@@ -100,35 +103,96 @@ impl<T> Page<T> where T: Serialize {
         self
     }
 
+    pub fn with_parent(mut self, parent_path: &str) -> Self {
+        self.parent = Some(parent_path.to_string());
+        self
+    }
+    
+    pub fn with_child(mut self, child: &str) -> Self {
+        self.child = Some(child.to_string());
+        self
+    }
+
+    pub fn with_template(mut self, template_path: &str) -> Self {
+        self.template = Some(template_path.to_string());
+        self
+    }
+
+    pub fn with_value(mut self, value: T) -> Self {
+        self.value = Some(value);
+        self
+    }
+
+    pub fn with_navigation(mut self, storage: &DirLink) -> Self {
+        self.navigation = Some(storage.construct_navigation());
+        self
+    }
+
     pub fn generate_import_tree(&self, storage: &DirLink) -> Value {
-        let mut local_tree = self.local_style_tree.iter().filter_map(|file| {
+
+        let mut local_styles = self.local_style_tree.iter().filter_map(|file| {
            serde_json::to_value(storage.get_local_file(file)).ok()
         }).collect::<Vec<Value>>();
 
-        let mut global_tree = self.global_style_tree.iter().filter_map(|file| {
+        let mut global_styles = self.global_style_tree.iter().filter_map(|file| {
             serde_json::to_value(storage.get_static_file(file)).ok()
         }).collect::<Vec<Value>>();
         
-        local_tree.append(&mut global_tree);
-        let tree = local_tree;
+        local_styles.append(&mut global_styles);
+        let style_tree = local_styles;
 
-        json!({
-            "STYLE_IMPORTS": tree,
-        })
+        let mut export = json!({
+            "STYLE_IMPORTS": style_tree,
+        });
+
+        match &self.navigation {
+            Some(navigation) => {
+                export["NAVIGATION"] = json!(*navigation);
+            },
+            None => {},
+        }
+        
+        match &self.parent {
+            Some(parent) => {
+                export["PARENT"] = json!(*parent);
+            },
+            None => {},
+        }
+
+        match &self.child {
+            Some(_) => {
+                export["INNER_PARENT"] = json!(self.template.clone().unwrap());
+            },
+            None => {},
+        }
+        
+        export
     }
 
     pub fn render(self, hb: Arc<Handlebars<'static>>, storage: &DirLink) -> impl warp::Reply {
-        let tree = &self.template_tree.clone();
-        self.render_template(hb, storage, &tree)
+        let template_name = match &self.template {
+            Some(name) => name.clone(),
+            None => panic!("Cannot render a page without a template"),
+        };
+
+        self.render_template(hb, storage, &template_name)
     }
 
     pub fn render_template(self, hb: Arc<Handlebars<'static>>, storage: &DirLink, template_name: &str) -> impl warp::Reply {
         let mut value = json!(self.value);
         let tree = self.generate_import_tree(storage);
+
+        let template_name = match &self.child {
+            Some(child) => {
+                child.clone()
+            },
+            None => {template_name.to_string()},
+        };
+
         merge(&mut value, tree);
 
         let render = hb
-            .render(template_name, &self.value)
+            .render(&template_name, &value)
             .unwrap_or_else(|err| err.to_string());
 
         warp::reply::html(render)
@@ -145,28 +209,44 @@ pub struct DirLink {
 
 impl DirLink {
 
-    pub fn get_static_file(&self, file_path: &str) -> String {
-        format!("/static/{}::{}", self.path, file_path)
+    pub fn get_static_file(&self, path: &str) -> String {
+        format!("/static/{}", path)
     }
 
-    pub fn get_local_file(&self, file_path: &str) -> String {
-        format!("/static/{}", file_path)
+    pub fn get_local_file(&self, name: &str) -> String {
+        format!("/static/routing::{}::{}", self.path, name)
     }
 
     pub fn template(&self) -> String {
-        self.get_template("index")
+        self.get_local_template("index")
     }
 
-    pub fn get_template(&self, template_name: &str) -> String {
-        format!("{}::{}", self.path, template_name)
+    pub fn get_local_template(&self, name: &str) -> String {
+        format!("routing::{}::{}", self.path, name)
     }
 
-    pub fn get_static_template(&self, template_name: &str) -> String {
-        format!("{}", template_name)
+    pub fn get_static_template(&self, path: &str) -> String {
+        format!("static::{}", path)
     }
 
     pub fn get_relative_path(&self) -> &String {
         &self.path
+    }
+
+    pub fn construct_navigation(&self) -> Vec<(String, String)> {
+        let a: Vec<String> = self.path.split("::").map(|n| n.to_string()).collect();
+        let mut b: Vec<(String, String)> = vec![];
+
+        for i in 0..a.len() {
+            let c = a.iter().take(i + 1).fold(String::new(), |a, v| {
+                a + &format!("/{v}")
+            });
+
+            let last = &c.split("/").last().map(|s| s.to_string()).unwrap();
+            b.push((c, last.to_owned()));
+        }
+
+        b
     }
 }
 

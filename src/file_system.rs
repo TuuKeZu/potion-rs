@@ -24,7 +24,7 @@ pub fn resolve_relative_path(path: PathBuf, truncate: bool) -> io::Result<VecDeq
     let mut l: VecDeque<String> = VecDeque::new();
     let mut path = path;
     
-    while !path.ends_with("routing") {
+    while !(path.ends_with("routing") || path.ends_with("static")) {
         if let Some(a) = path.file_name().map(|p| p.to_str().unwrap()) {
             let file = if truncate {
                 if let Some(e) = path.extension() {
@@ -41,6 +41,10 @@ pub fn resolve_relative_path(path: PathBuf, truncate: bool) -> io::Result<VecDeq
         }
         
         path.pop();
+    }
+
+    if let Some(a) = path.file_name().map(|p| p.to_str().unwrap()) {
+        l.push_front(a.to_string());
     }
 
     Ok(l)
