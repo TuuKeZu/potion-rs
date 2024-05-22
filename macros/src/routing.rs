@@ -2,8 +2,6 @@ use std::{collections::VecDeque, fs, io, path::Path};
 
 use crate::file_system::resolve_relative_path;
 
-
-
 pub fn construct_routing_system(path: &str) -> io::Result<String> {
     let mut ts = String::from("mod routing { ");
     let mut l: Vec<VecDeque<String>> = vec![];
@@ -12,11 +10,15 @@ pub fn construct_routing_system(path: &str) -> io::Result<String> {
 
     ts += "\n";
     ts += &construct_router_tree(&mut l)?;
-    
+
     Ok(ts)
 }
 
-pub fn construct_import_tree(dir: &str, s: &mut String, l: &mut Vec<VecDeque<String>>) -> io::Result<()> {
+pub fn construct_import_tree(
+    dir: &str,
+    s: &mut String,
+    l: &mut Vec<VecDeque<String>>,
+) -> io::Result<()> {
     if Path::new(dir).is_dir() {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
@@ -55,10 +57,9 @@ pub fn construct_router_tree(l: &mut Vec<VecDeque<String>>) -> io::Result<String
                     ts += &format!("warp::path(\"{}\").and(", route)
                 }
             }
-    
+
             ts += &")".repeat(tree.len() - 1);
         }
-
     } else {
         return Ok(ts);
     }
@@ -77,7 +78,6 @@ pub fn construct_router_tree(l: &mut Vec<VecDeque<String>>) -> io::Result<String
 
             ts += &")".repeat(tree.len());
         }
-
     }
 
     ts += " }";
