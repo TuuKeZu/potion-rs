@@ -1,7 +1,9 @@
-use std::{collections::VecDeque, fs::{self, DirEntry}, io, path::{Path, PathBuf}};
-
-
-
+use std::{
+    collections::VecDeque,
+    fs::{self, DirEntry},
+    io,
+    path::{Path, PathBuf},
+};
 
 pub fn visit_dirs(dir: &Path, l: &mut Vec<DirEntry>, extensions: &[&str]) -> io::Result<()> {
     if dir.is_dir() {
@@ -23,7 +25,7 @@ pub fn visit_dirs(dir: &Path, l: &mut Vec<DirEntry>, extensions: &[&str]) -> io:
 pub fn resolve_relative_path(path: PathBuf, truncate: bool) -> io::Result<VecDeque<String>> {
     let mut l: VecDeque<String> = VecDeque::new();
     let mut path = path;
-    
+
     while !(path.ends_with("routing") || path.ends_with("static")) {
         if let Some(a) = path.file_name().map(|p| p.to_str().unwrap()) {
             let file = if truncate {
@@ -39,7 +41,7 @@ pub fn resolve_relative_path(path: PathBuf, truncate: bool) -> io::Result<VecDeq
 
             l.push_front(file);
         }
-        
+
         path.pop();
     }
 

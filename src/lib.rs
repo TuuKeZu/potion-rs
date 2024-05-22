@@ -1,13 +1,14 @@
-
 #[cfg(feature = "routing")]
 extern crate macros;
 
-mod context;
-mod utility;
-mod error;
-mod form_data;
-mod file_system;
-mod routing;
+pub mod context;
+pub mod error;
+pub mod file_system;
+pub mod form_data;
+pub mod pagination;
+pub mod routing;
+pub mod uri;
+pub mod utility;
 
 #[cfg(feature = "routing")]
 pub use macros::*;
@@ -18,3 +19,4 @@ pub use routing::initialize_routing;
 pub use context::*;
 pub use error::*;
 pub use form_data::*;
+pub use uri::*;
