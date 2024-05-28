@@ -44,9 +44,9 @@ pub fn construct_import_tree(
 pub fn construct_router_tree(l: &mut Vec<VecDeque<String>>) -> io::Result<String> {
     let mut ts = String::from("fn router(hb: Arc<Handlebars<'static>>, pool: Arc<Pool<Postgres>>) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone { ");
 
-    let tree_list: Vec<&VecDeque<String>> = l.iter().filter(|tree| tree.iter().last().unwrap() == "index").collect();
+    let mut tree_list: Vec<&VecDeque<String>> = l.iter().filter(|tree| tree.iter().last().unwrap() == "index").collect();
     
-    if let Some(tree) = l.pop() {
+    if let Some(tree) = tree_list.pop() {
         if tree.len() <= 0 {
             panic!("Failed to construct router tree. Tried to link file with invalid path")
         }
@@ -63,14 +63,12 @@ pub fn construct_router_tree(l: &mut Vec<VecDeque<String>>) -> io::Result<String
             }
 
             ts += &")".repeat(tree.len() - 1);
-        } else {
-            panic!("Failed to construct router tree. Found directory without index.rs file")
         }
     } else {
         return Ok(ts);
     }
 
-    for tree in l {
+    for tree in tree_list {
         dbg!(&tree);
         if tree.iter().last().unwrap() == "index" {
             for (i, route) in tree.iter().enumerate() {
