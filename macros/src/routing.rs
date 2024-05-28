@@ -6,6 +6,7 @@ pub fn construct_routing_system(path: &str) -> io::Result<String> {
     let mut ts = String::from("mod routing { ");
     let mut l: Vec<VecDeque<String>> = vec![];
     construct_import_tree(path, &mut ts, &mut l)?;
+    dbg!(&l);
     ts += "}";
 
     ts += "\n";
@@ -46,7 +47,7 @@ pub fn construct_router_tree(l: &mut Vec<VecDeque<String>>) -> io::Result<String
 
     if let Some(tree) = l.pop() {
         if tree.len() <= 0 {
-            panic!("Failed to construct router tree. Tried to link f")
+            panic!("Failed to construct router tree. Tried to link file with invalid path")
         }
         if tree.iter().last().unwrap() == "index" {
             for (i, route) in tree.iter().enumerate() {
