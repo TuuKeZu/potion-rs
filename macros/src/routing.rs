@@ -61,6 +61,8 @@ pub fn construct_router_tree(l: &mut Vec<VecDeque<String>>) -> io::Result<String
             }
 
             ts += &")".repeat(tree.len() - 1);
+        } else {
+            panic!("Failed to construct router tree. Found directory without index.rs file")
         }
     } else {
         return Ok(ts);
