@@ -51,7 +51,7 @@ pub fn construct_router_tree(l: &mut Vec<VecDeque<String>>) -> io::Result<String
         }
         if tree.iter().last().unwrap() == "index" {
             for (i, route) in tree.iter().enumerate() {
-                dbg!(&tree, &i);
+                dbg!(&route, &i);
                 if i == 0 {
                     ts += &format!("warp::path(\"{}\").and(", route)
                 } else if i == tree.len() - 1 {
