@@ -1,5 +1,3 @@
-#![feature(proc_macro_span)]
-
 use proc_macro::{Span, TokenStream};
 use routing::construct_routing_system;
 
