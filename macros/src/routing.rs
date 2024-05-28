@@ -6,7 +6,6 @@ pub fn construct_routing_system(path: &str) -> io::Result<String> {
     let mut ts = String::from("mod routing { ");
     let mut l: Vec<VecDeque<String>> = vec![];
     construct_import_tree(path, &mut ts, &mut l)?;
-    dbg!(&l);
     ts += "}";
 
     ts += "\n";
@@ -46,11 +45,13 @@ pub fn construct_router_tree(l: &mut Vec<VecDeque<String>>) -> io::Result<String
     let mut ts = String::from("fn router(hb: Arc<Handlebars<'static>>, pool: Arc<Pool<Postgres>>) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone { ");
 
     if let Some(tree) = l.pop() {
+        dbg!(&tree);
         if tree.len() <= 0 {
             panic!("Failed to construct router tree. Tried to link file with invalid path")
         }
         if tree.iter().last().unwrap() == "index" {
             for (i, route) in tree.iter().enumerate() {
+                dbg!(&tree, &i);
                 if i == 0 {
                     ts += &format!("warp::path(\"{}\").and(", route)
                 } else if i == tree.len() - 1 {
@@ -69,6 +70,7 @@ pub fn construct_router_tree(l: &mut Vec<VecDeque<String>>) -> io::Result<String
     }
 
     for tree in l {
+        dbg!(&tree);
         if tree.iter().last().unwrap() == "index" {
             for (i, route) in tree.iter().enumerate() {
                 if i == 0 {
