@@ -32,6 +32,7 @@ pub fn construct_import_tree(
                 if path.extension().unwrap() == "rs" {
                     let file = entry.file_name().to_str().unwrap().replace(".rs", "");
                     *s += &format!(" pub mod {}; ", &file);
+                    dbg!(&path);
                     l.push(resolve_relative_path(path, true)?);
                 }
             }
