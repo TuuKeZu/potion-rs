@@ -1,6 +1,6 @@
 use std::fmt::{self, Display};
 
-use warp::{reject::Rejection, reply::Reply};
+use warp::reject::Rejection;
 
 pub const ERROR_CODE_INFO: &[(i16, &str)] = &[
     (400, "Invalid request; The request failed to contain or contained invalid payload. This shouldn't happen with normal use, so take your time to report this issue if you did not modify request parameters by hand.\
@@ -58,9 +58,9 @@ impl HtmlError {
     pub fn new(self, info: &str) -> Error {
         match self {
             Self::InvalidSession => Error::new(401, info, None),
-            HtmlError::Unauthorized => Error::new(403, info, None),
-            HtmlError::InvalidRequest => Error::new(400, info, None),
-            HtmlError::InternalServerError => Error::new(500, info, None),
+            Self::Unauthorized => Error::new(403, info, None),
+            Self::InvalidRequest => Error::new(400, info, None),
+            Self::InternalServerError => Error::new(500, info, None),
         }
     }
 
@@ -69,9 +69,8 @@ impl HtmlError {
      */
     pub fn redirect(self, info: &str, redirect: &str) -> Error {
         match self {
-            HtmlError::Unauthorized | Self::InvalidSession => {
-                Error::new(401, info, Some(redirect.to_string()))
-            }
+            HtmlError::Unauthorized => Error::new(401, info, Some(redirect.to_string())),
+            HtmlError::InvalidSession => Error::new(403, info, Some(redirect.to_string())),
             HtmlError::InvalidRequest => Error::new(400, info, Some(redirect.to_string())),
             HtmlError::InternalServerError => Error::new(500, info, Some(redirect.to_string())),
         }
@@ -114,8 +113,8 @@ impl warp::reject::Reject for Error {}
 
 impl warp::Reply for Error {
     fn into_response(self) -> warp::reply::Response {
-        if let Some(url) = self.redirect {
-            return warp::redirect(warp::http::Uri::from_static(url.leak())).into_response();
+        if let Some(_url) = self.redirect {
+            //return warp::redirect(warp::http::Uri::from_static(url.leak())).into_response();
         };
         let code = self.code;
         let info = self.info.unwrap_or(String::from("Unknown error"));

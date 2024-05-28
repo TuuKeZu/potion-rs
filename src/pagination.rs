@@ -18,7 +18,10 @@ impl<T> PageContext<T> {
         let next_offset = (current_offset + page_size).min(total_rows - (total_rows % page_size));
         let prev_offset = (current_offset - page_size).max(0);
 
-        let page_list = (0..(((total_rows / page_size) as f64).ceil() as usize) + 1)
+        let page_count = ((total_rows / page_size) as f64).ceil() as usize;
+        let page_count = page_count + if total_rows <= page_size { 0 } else { 1 };
+
+        let page_list = (0..page_count)
             .map(|n| {
                 let page = if n == ((current_offset / page_size) as f64).floor() as usize {
                     String::from("...")
@@ -26,7 +29,7 @@ impl<T> PageContext<T> {
                     format!("{}", n + 1)
                 };
 
-                let offset = ((n as i64) * page_size).min(total_rows - 1);
+                let offset = ((n as i64) * page_size).min(total_rows - (total_rows % page_size));
 
                 (page, offset)
             })
