@@ -24,6 +24,6 @@ pub fn routing(_p: TokenStream) -> TokenStream {
 
     let ts = construct_routing_system(&potion_routing_dir.unwrap())
         .expect("Failed to construct module tree");
-
+    dbg!(&ts);
     ts.parse().unwrap()
 }
