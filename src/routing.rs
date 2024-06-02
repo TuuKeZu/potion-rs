@@ -25,9 +25,9 @@ pub fn initialize_routing(
 
 fn map_routing_tree(path: &str) -> io::Result<Vec<(String, PathBuf)>> {
     let mut l: Vec<DirEntry> = vec![];
-    visit_dirs(Path::new(path), &mut l, &["hbs", "css"])?;
+    visit_dirs(&Path::new(path).join(Path::new("routing")), &mut l, &["hbs", "css"])?;
     visit_dirs(
-        Path::new("D:\\rannasta-suomeen-rs\\src\\static"),
+        &Path::new(path).join(Path::new("static")),
         &mut l,
         &["hbs", "css"],
     )?;
@@ -95,8 +95,8 @@ pub fn link_static_files(l: &Vec<(String, PathBuf)>) -> BoxedFilter<(warp::filte
     router
 }
 
-pub fn link_static_dir(_path: PathBuf) -> BoxedFilter<(warp::fs::File,)> {
+pub fn link_static_dir(path: PathBuf) -> BoxedFilter<(warp::fs::File,)> {
     warp::path("static")
-        .and(warp::fs::dir("D:\\rannasta-suomeen-rs\\src\\static"))
+        .and(warp::fs::dir(path.join(Path::new("static"))))
         .boxed()
 }
