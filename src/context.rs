@@ -10,19 +10,19 @@ use sqlx::Pool;
 
 use crate::utility::merge;
 
-pub type ContextRef = (Arc<Pool<Postgres>>, Arc<Handlebars<'static>>, DirLink);
+pub type ContextRef = (Pool<Postgres>, Arc<Handlebars<'static>>, DirLink);
 
 #[derive(Debug, Clone)]
 pub struct Context {
     pub hb: Arc<Handlebars<'static>>,
-    pub db: Arc<Pool<Postgres>>,
+    pub db: Pool<Postgres>,
     pub storage: DirLink,
 }
 
 impl Context {
     pub fn with_db(
         &self,
-    ) -> impl Filter<Extract = (Arc<Pool<Postgres>>,), Error = std::convert::Infallible> + Clone
+    ) -> impl Filter<Extract = (Pool<Postgres>,), Error = std::convert::Infallible> + Clone
     {
         let db = self.db.clone();
         warp::any().map(move || db.clone())
@@ -52,7 +52,7 @@ impl Context {
         warp::any().map(move || (db.clone(), hb.clone(), storage.clone()))
     }
 
-    pub fn new(hb: Arc<Handlebars<'static>>, db: Arc<Pool<Postgres>>, path: &[&str]) -> Self {
+    pub fn new(hb: Arc<Handlebars<'static>>, db: Pool<Postgres>, path: &[&str]) -> Self {
         Self {
             hb,
             db,
