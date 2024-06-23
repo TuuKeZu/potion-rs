@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use handlebars::Handlebars;
+use minify_html::Cfg;
 use serde::Serialize;
 use serde_json::{json, Value};
 use sqlx::Postgres;
@@ -12,7 +13,7 @@ use crate::utility::merge;
 
 pub type ContextRef = (Pool<Postgres>, Arc<Handlebars<'static>>, DirLink);
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct Context {
     pub hb: Arc<Handlebars<'static>>,
     pub db: Pool<Postgres>,
@@ -56,7 +57,7 @@ impl Context {
         Self {
             hb,
             db,
-            storage: DirLink::from(path),
+            storage: DirLink::from(path)
         }
     }
 
@@ -65,7 +66,7 @@ impl Context {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Page<T: Serialize> {
     value: Option<T>,
     template: Option<String>,
@@ -74,6 +75,7 @@ pub struct Page<T: Serialize> {
     navigation: Option<Vec<(String, String)>>,
     local_style_tree: Vec<String>,
     global_style_tree: Vec<String>,
+    cfg: Cfg
 }
 
 impl<T> Page<T>
@@ -89,6 +91,7 @@ where
             navigation: None,
             local_style_tree: vec![],
             global_style_tree: vec![],
+            cfg: Cfg::new()
         }
     }
 
@@ -101,6 +104,7 @@ where
             navigation: Some(storage.construct_navigation()),
             local_style_tree: vec![String::from("index.css")],
             global_style_tree: vec![String::from("index.css")],
+            cfg: Cfg::new()
         }
     }
 
@@ -212,7 +216,9 @@ where
             .render(&template_name, &value)
             .unwrap_or_else(|err| err.to_string());
 
-        warp::reply::html(render)
+        let minified = minify_html::minify(render.as_bytes(), &self.cfg);
+        
+        warp::reply::html(minified)
     }
 }
 
