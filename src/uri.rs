@@ -29,10 +29,10 @@ impl Builder {
             .enumerate()
             .fold(self.location, |uri, (i, (k, v))| {
                 if i == 0 {
-                    return uri + &format!("?{k}={v}");
+                    return uri + format!("?{k}={v}").as_str();
                 }
 
-                uri + &format!("&{k}={v}")
+                uri + format!("&{k}={v}").as_str()
             });
 
         uri::Builder::new()

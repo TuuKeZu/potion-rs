@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use handlebars::Handlebars;
+use minify_html::{minify, Cfg};
 use serde::Serialize;
 use serde_json::{json, Value};
 use sqlx::Postgres;
@@ -65,7 +66,7 @@ impl Context {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Page<T: Serialize> {
     value: Option<T>,
     template: Option<String>,
@@ -74,6 +75,9 @@ pub struct Page<T: Serialize> {
     navigation: Option<Vec<(String, String)>>,
     local_style_tree: Vec<String>,
     global_style_tree: Vec<String>,
+    local_script_tree: Vec<String>,
+    global_script_tree: Vec<String>,
+    _cfg: Cfg
 }
 
 impl<T> Page<T>
@@ -89,6 +93,9 @@ where
             navigation: None,
             local_style_tree: vec![],
             global_style_tree: vec![],
+            local_script_tree: vec![],
+            global_script_tree: vec![],
+            _cfg: Cfg::new()
         }
     }
 
@@ -101,6 +108,9 @@ where
             navigation: Some(storage.construct_navigation()),
             local_style_tree: vec![String::from("index.css")],
             global_style_tree: vec![String::from("index.css")],
+            local_script_tree: vec![String::from("index.js")],
+            global_script_tree: vec![String::from("index.js")],
+            _cfg: Cfg::new()
         }
     }
 
@@ -111,6 +121,16 @@ where
 
     pub fn with_global_styles(mut self, styles: &[&str]) -> Self {
         self.global_style_tree = Vec::from_iter(styles.iter().map(|s| s.to_string()));
+        self
+    }
+
+    pub fn with_local_scripts(mut self, styles: &[&str]) -> Self {
+        self.local_script_tree = Vec::from_iter(styles.iter().map(|s| s.to_string().replace(".ts", ".js")));
+        self
+    }
+
+    pub fn with_global_scripts(mut self, styles: &[&str]) -> Self {
+        self.global_script_tree = Vec::from_iter(styles.iter().map(|s| s.to_string().replace(".ts", ".js")));
         self
     }
 
@@ -146,17 +166,33 @@ where
             .filter_map(|file| serde_json::to_value(storage.get_local_file(file)).ok())
             .collect::<Vec<Value>>();
 
+        let mut local_scripts = self
+            .local_script_tree
+            .iter()
+            .filter_map(|file| serde_json::to_value(storage.get_local_file(file)).ok())
+            .collect::<Vec<Value>>();
+
         let mut global_styles = self
             .global_style_tree
             .iter()
             .filter_map(|file| serde_json::to_value(storage.get_static_file(file)).ok())
             .collect::<Vec<Value>>();
 
+        let mut global_scripts = self
+            .global_script_tree
+            .iter()
+            .filter_map(|file| serde_json::to_value(storage.get_static_file(file)).ok())
+            .collect::<Vec<Value>>();
+
         local_styles.append(&mut global_styles);
+        local_scripts.append(&mut global_scripts);
+
         let style_tree = local_styles;
+        let scripts_tree = local_scripts;
 
         let mut export = json!({
             "STYLE_IMPORTS": style_tree,
+            "SCRIPT_IMPORTS": scripts_tree
         });
 
         match &self.navigation {
@@ -212,7 +248,8 @@ where
             .render(&template_name, &value)
             .unwrap_or_else(|err| err.to_string());
 
-        warp::reply::html(render)
+        let minified = minify(render.as_bytes(), &self._cfg);
+        warp::reply::html(minified)
     }
 }
 
@@ -223,7 +260,7 @@ pub struct DirLink {
 
 impl DirLink {
     pub fn get_static_file(&self, path: &str) -> String {
-        format!("/static/{}", path)
+        format!("/static/static::{}", path)
     }
 
     pub fn get_local_file(&self, name: &str) -> String {
@@ -254,7 +291,7 @@ impl DirLink {
             let c = a
                 .iter()
                 .take(i + 1)
-                .fold(String::new(), |a, v| a + &format!("/{v}"));
+                .fold(String::new(), |a, v| a + format!("/{v}").as_str());
 
             let last = &c.split("/").last().map(|s| s.to_string()).unwrap();
             b.push((c, last.to_owned()));

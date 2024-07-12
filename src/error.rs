@@ -113,6 +113,8 @@ impl warp::reject::Reject for Error {}
 
 impl warp::Reply for Error {
     fn into_response(self) -> warp::reply::Response {
+        // TODO fix
+        panic!("{self}");
         if let Some(_url) = self.redirect {
             //return warp::redirect(warp::http::Uri::from_static(url.leak())).into_response();
         };

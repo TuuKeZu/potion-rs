@@ -1,6 +1,9 @@
 #[cfg(feature = "routing")]
 extern crate macros;
 
+#[cfg(feature = "typescript")]
+extern crate wsc;
+
 pub mod context;
 pub mod error;
 pub mod file_system;
@@ -13,8 +16,12 @@ pub mod utility;
 #[cfg(feature = "routing")]
 pub use macros::*;
 
+
 #[cfg(feature = "routing")]
 pub use routing::initialize_routing;
+
+#[cfg(feature = "typescript")]
+pub use wsc::*;
 
 pub use context::*;
 pub use error::*;
