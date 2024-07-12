@@ -13,7 +13,7 @@ use crate::utility::merge;
 
 pub type ContextRef = (Pool<Postgres>, Arc<Handlebars<'static>>, DirLink);
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct Context {
     pub hb: Arc<Handlebars<'static>>,
     pub db: Pool<Postgres>,
@@ -57,7 +57,7 @@ impl Context {
         Self {
             hb,
             db,
-            storage: DirLink::from(path),
+            storage: DirLink::from(path)
         }
     }
 
