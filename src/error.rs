@@ -136,9 +136,10 @@ impl warp::Reply for Error {
             <html>
                 <head>
                     <title>Error - {code}</title>
-                    <link rel="stylesheet" href="static/index.css" />
+                    <link rel="stylesheet" href="/static/index.css" />
                 </head>
                 <body>
+                    <div class="background"></div>
                     <nav>
 
                     </nav>
