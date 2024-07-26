@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{any::Any, sync::Arc};
 
 use handlebars::Handlebars;
 use minify_html::{minify, Cfg};
@@ -11,8 +11,45 @@ use sqlx::Pool;
 
 use crate::utility::merge;
 
-pub type ContextRef = (Pool<Postgres>, Arc<Handlebars<'static>>, DirLink);
+pub type RouterContext = Router<dyn Context>;
 
+pub trait Context {
+    fn box_clone<>(&self) -> Box<dyn Context>;
+    fn as_any<>(&self) -> &dyn Any;
+    fn as_any_mut<>(&mut self) -> &mut dyn Any;
+}
+
+impl Clone for Box<dyn Context>
+{
+    fn clone(&self) -> Box<dyn Context> {
+        self.box_clone()
+    }
+}
+
+#[derive(Clone)]
+pub struct Router<C: Context + ?Sized> {
+    context: Box<C>,
+    pub storage: DirLink
+}
+
+impl<C: Context + ?Sized> Router<C> {
+    pub fn new(context: Box<C>, path: &[&str]) -> Self {
+        Self {
+            context,
+            storage: DirLink::from(path)
+        }
+    }
+
+    pub fn downcast<U: Context + 'static>(&self) -> &U {
+        self.context.as_any().downcast_ref::<U>().expect("downcasting from Router<dyn Context>")
+    }
+
+    pub fn downcast_mut<U: Context + 'static>(&mut self) -> &mut U {
+        self.context.as_any_mut().downcast_mut::<U>().expect("downcasting from Router<dyn Context>")
+    }
+}
+
+/*
 #[derive(Clone, Debug)]
 pub struct Context {
     pub hb: Arc<Handlebars<'static>>,
@@ -65,6 +102,7 @@ impl Context {
         self.storage.get_local_file(name)
     }
 }
+*/
 
 #[derive(Clone)]
 pub struct Page<T: Serialize> {
