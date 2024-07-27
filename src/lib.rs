@@ -12,6 +12,8 @@ pub mod pagination;
 pub mod routing;
 pub mod uri;
 pub mod utility;
+pub mod page;
+pub mod storage;
 
 #[cfg(feature = "routing")]
 pub use macros::*;
@@ -27,3 +29,4 @@ pub use context::*;
 pub use error::*;
 pub use form_data::*;
 pub use uri::*;
+pub use page::*;

@@ -51,7 +51,7 @@ pub fn hello_derive(item: TokenStream) -> TokenStream {
                 self
             }
         
-            fn box_clone(&self) -> Box<dyn potion::Context> {
+            fn box_clone(&self) -> Box<dyn potion::Context + Send + Sync> {
                 Box::new((*self).clone())
             }
         }
