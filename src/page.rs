@@ -238,6 +238,6 @@ where
             .unwrap_or_else(|err| err.to_string());
 
         let minified = minify(render.as_bytes(), &self._cfg);
-        warp::reply::html(render)
+        warp::reply::html(minified)
     }
 }
