@@ -10,10 +10,7 @@ pub const ERROR_CODE_INFO: &[(i16, &str)] = &[
     (500, "Internal server error, this error was automatically reported to our system. The server responded with the following information about the issue: ")
 ];
 
-pub const VALID_ERROR_CODES: &[i16] = &[
-    401,
-    403
-];
+pub const VALID_ERROR_CODES: &[i16] = &[401, 403];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /**

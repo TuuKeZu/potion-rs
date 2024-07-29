@@ -5,30 +5,25 @@ use minify_html::{minify, Cfg};
 use serde::Serialize;
 use serde_json::{json, Value};
 
-
 use crate::{storage::Storage, utility::merge};
 
 #[derive(Clone, PartialEq, PartialOrd)]
 pub enum PageValueScope {
     ServerSide,
-    ClientSide
+    ClientSide,
 }
 
 #[derive(Clone)]
 struct PageValue<T: Serialize> {
     value: T,
-    scope: PageValueScope
+    scope: PageValueScope,
 }
 
-impl<T :Serialize> PageValue<T> {
+impl<T: Serialize> PageValue<T> {
     fn new(value: T, scope: PageValueScope) -> Self {
-        Self {
-            value,
-            scope
-        }
+        Self { value, scope }
     }
 }
-
 
 #[derive(Clone)]
 pub struct Page<T: Serialize> {
@@ -45,7 +40,7 @@ pub struct Page<T: Serialize> {
 
     local_script_tree: Vec<String>,
     global_script_tree: Vec<String>,
-    _cfg: Cfg
+    _cfg: Cfg,
 }
 
 impl<T> Page<T>
@@ -63,7 +58,7 @@ where
             global_style_tree: vec![],
             local_script_tree: vec![],
             global_script_tree: vec![],
-            _cfg: Cfg::default()
+            _cfg: Cfg::default(),
         }
     }
 
@@ -78,7 +73,7 @@ where
             global_style_tree: vec![String::from("index.css")],
             local_script_tree: vec![String::from("index.js")],
             global_script_tree: vec![String::from("index.js")],
-            _cfg: Cfg::new()
+            _cfg: Cfg::new(),
         }
     }
 
@@ -93,12 +88,14 @@ where
     }
 
     pub fn with_local_scripts(mut self, styles: &[&str]) -> Self {
-        self.local_script_tree = Vec::from_iter(styles.iter().map(|s| s.to_string().replace(".ts", ".js")));
+        self.local_script_tree =
+            Vec::from_iter(styles.iter().map(|s| s.to_string().replace(".ts", ".js")));
         self
     }
 
     pub fn with_global_scripts(mut self, styles: &[&str]) -> Self {
-        self.global_script_tree = Vec::from_iter(styles.iter().map(|s| s.to_string().replace(".ts", ".js")));
+        self.global_script_tree =
+            Vec::from_iter(styles.iter().map(|s| s.to_string().replace(".ts", ".js")));
         self
     }
 
@@ -184,16 +181,26 @@ where
             None => {}
         }
 
-        if self.values.iter().find(|value| value.scope == PageValueScope::ClientSide).is_some() {
-            let client_value_tree = self.values.iter().filter_map(|value| match value.scope {
-                PageValueScope::ServerSide => None,
-                PageValueScope::ClientSide => Some(json!(value.value)),
-            }).fold(json!("{}"), |mut a, v| {
-                merge(&mut a, v);
-                a
-            });
+        if self
+            .values
+            .iter()
+            .find(|value| value.scope == PageValueScope::ClientSide)
+            .is_some()
+        {
+            let client_value_tree = self
+                .values
+                .iter()
+                .filter_map(|value| match value.scope {
+                    PageValueScope::ServerSide => None,
+                    PageValueScope::ClientSide => Some(json!(value.value)),
+                })
+                .fold(json!("{}"), |mut a, v| {
+                    merge(&mut a, v);
+                    a
+                });
 
-            export["CLIENT_SIDE_VALUES"] = Value::String(format!("const potion = {};", client_value_tree.to_string()));
+            export["CLIENT_SIDE_VALUES"] =
+                Value::String(format!("const potion = {};", client_value_tree.to_string()));
         }
 
         export
@@ -216,19 +223,22 @@ where
     ) -> impl warp::Reply {
         let tree = self.generate_import_tree(storage);
 
-        let server_value_tree = self.values.iter().filter_map(|value| match value.scope {
-            PageValueScope::ServerSide => Some(json!(value.value)),
-            PageValueScope::ClientSide => None,
-        }).fold(tree, |mut a, v| {
-            merge(&mut a, v);
-            a
-        });
-    
+        let server_value_tree = self
+            .values
+            .iter()
+            .filter_map(|value| match value.scope {
+                PageValueScope::ServerSide => Some(json!(value.value)),
+                PageValueScope::ClientSide => None,
+            })
+            .fold(tree, |mut a, v| {
+                merge(&mut a, v);
+                a
+            });
+
         let template_name = match &self.child {
             Some(child) => child.clone(),
             None => template_name.to_string(),
         };
-
 
         let render = hb
             .render(&template_name, &server_value_tree)

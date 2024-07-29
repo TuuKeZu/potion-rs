@@ -8,16 +8,15 @@ pub mod context;
 pub mod error;
 pub mod file_system;
 pub mod form_data;
+pub mod page;
 pub mod pagination;
 pub mod routing;
+pub mod storage;
 pub mod uri;
 pub mod utility;
-pub mod page;
-pub mod storage;
 
 #[cfg(feature = "routing")]
 pub use macros::*;
-
 
 #[cfg(feature = "routing")]
 pub use routing::initialize_routing;
@@ -28,5 +27,5 @@ pub use wsc::*;
 pub use context::*;
 pub use error::*;
 pub use form_data::*;
-pub use uri::*;
 pub use page::*;
+pub use uri::*;

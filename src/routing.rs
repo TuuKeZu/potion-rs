@@ -13,8 +13,8 @@ pub fn initialize_routing(
     path: &str,
     dev: bool,
 ) -> io::Result<(Handlebars<'static>, BoxedFilter<(warp::filters::fs::File,)>)> {
-    let file_map = map_routing_tree(path)?;
-    
+    let mut file_map = map_routing_tree(path)?;
+
     #[cfg(feature = "typescript")]
     typescript_code_gen(&PathBuf::from(path), &mut file_map)?;
 
@@ -28,7 +28,11 @@ pub fn initialize_routing(
 
 fn map_routing_tree(path: &str) -> io::Result<Vec<(String, PathBuf)>> {
     let mut l: Vec<DirEntry> = vec![];
-    visit_dirs(&Path::new(path).join(Path::new("routing")), &mut l, &["hbs", "css", "ts"])?;
+    visit_dirs(
+        &Path::new(path).join(Path::new("routing")),
+        &mut l,
+        &["hbs", "css", "ts"],
+    )?;
     visit_dirs(
         &Path::new(path).join(Path::new("static")),
         &mut l,
@@ -87,7 +91,7 @@ pub fn link_static_files(l: &Vec<(String, PathBuf)>) -> BoxedFilter<(warp::filte
         .fold(root, |f, (r, p)| {
             let (route, extension) = r.split_at(r.len() - 1);
             let name = format!("{}.{}", route.join("::"), extension.first().unwrap());
-            
+
             let g = warp::path("static")
                 .and(warp::path(name).and(warp::fs::file(p)))
                 .boxed();
@@ -105,9 +109,12 @@ pub fn link_static_dir(path: PathBuf) -> BoxedFilter<(warp::fs::File,)> {
 }
 
 #[cfg(feature = "typescript")]
-pub fn typescript_code_gen(routing_path: &Path, file_map: &mut Vec<(String, PathBuf)>) -> io::Result<()> {
-    use minify_js::{Session, TopLevelMode, minify};
+pub fn typescript_code_gen(
+    routing_path: &Path,
+    file_map: &mut Vec<(String, PathBuf)>,
+) -> io::Result<()> {
     use crate::wsc::ts_to_js;
+    use minify_js::{minify, Session, TopLevelMode};
 
     let session = Session::new();
     let mut script_map = vec![];
@@ -117,7 +124,10 @@ pub fn typescript_code_gen(routing_path: &Path, file_map: &mut Vec<(String, Path
         .filter(|(t, _)| t.ends_with(".ts"))
         .map(|(t, p)| (format!("{}.js", t.replace(".ts", "")), p))
     {
-        let filename = path.file_name().map(|s| s.to_str().unwrap_or("unknown")).unwrap_or("unknown");
+        let filename = path
+            .file_name()
+            .map(|s| s.to_str().unwrap_or("unknown"))
+            .unwrap_or("unknown");
         let content = fs::read_to_string(path)?;
         let output_path = routing_path.join("../dist").join(route.clone());
 
@@ -126,7 +136,8 @@ pub fn typescript_code_gen(routing_path: &Path, file_map: &mut Vec<(String, Path
 
         let mut out_buffer = Vec::new();
 
-        minify(&session, TopLevelMode::Global, out, &mut out_buffer).expect("Failed to minify generated js");
+        minify(&session, TopLevelMode::Global, out, &mut out_buffer)
+            .expect("Failed to minify generated js");
 
         fs::write(output_path.clone(), out_buffer)?;
 
