@@ -1,13 +1,10 @@
-use std::{any::Any, sync::Arc};
+use std::sync::Arc;
 
 use handlebars::Handlebars;
 use minify_html::{minify, Cfg};
-use serde::{de::value, Serialize};
+use serde::Serialize;
 use serde_json::{json, Value};
-use sqlx::Postgres;
-use warp::{filters::body::json, Filter};
 
-use sqlx::Pool;
 
 use crate::{storage::Storage, utility::merge};
 

@@ -1,5 +1,5 @@
 use std::{
-    fs::{self, DirEntry},
+    fs::DirEntry,
     io,
     path::{Path, PathBuf},
 };
@@ -13,7 +13,7 @@ pub fn initialize_routing(
     path: &str,
     dev: bool,
 ) -> io::Result<(Handlebars<'static>, BoxedFilter<(warp::filters::fs::File,)>)> {
-    let mut file_map = map_routing_tree(path)?;
+    let file_map = map_routing_tree(path)?;
     
     #[cfg(feature = "typescript")]
     typescript_code_gen(&PathBuf::from(path), &mut file_map)?;

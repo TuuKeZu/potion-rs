@@ -10,6 +10,11 @@ pub const ERROR_CODE_INFO: &[(i16, &str)] = &[
     (500, "Internal server error, this error was automatically reported to our system. The server responded with the following information about the issue: ")
 ];
 
+pub const VALID_ERROR_CODES: &[i16] = &[
+    401,
+    403
+];
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /**
    ### Enum for representing the most common html errorcodes
@@ -119,6 +124,10 @@ impl warp::Reply for Error {
         let code = self.code;
         let info = self.info.unwrap_or(String::from("Unknown error"));
 
+        if !VALID_ERROR_CODES.contains(&code) {
+            log::error!("Error: {:?}", code)
+        }
+
         let description = ERROR_CODE_INFO
             .iter()
             .find_map(|(code, info)| {
@@ -144,8 +153,9 @@ impl warp::Reply for Error {
 
                     </nav>
                     <section class="content">
-                        <h1>{info}</h1>
+                        <h1>{code}</h1>
                         <p>{description}</p>
+                        <p>{info}</p>
                     </section>
                 </body>
             </html>

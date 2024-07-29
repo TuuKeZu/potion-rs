@@ -1,4 +1,4 @@
-use proc_macro::{TokenStream};
+use proc_macro::TokenStream;
 use routing::construct_routing_system;
 use syn::{parse_macro_input, DataStruct, DeriveInput};
 use syn::Data::Struct;
@@ -57,18 +57,7 @@ pub fn hello_derive(item: TokenStream) -> TokenStream {
         }
     }.into()
 }
-/* 
-pub fn impl_hello_world(ast: &syn::DeriveInput) -> quote::Tokens {
-    let name = &ast.ident;
-    quote! {
-        impl potion::Context for #name {
-            fn hello_world() {
-                println!("Hello, World! My name is {}", stringify!(#name));
-            }
-        }
-    }
-}
-*/
+
 #[test]
 fn test_router() {
     let a = construct_routing_system("D:\\potion-test\\src\\routing");

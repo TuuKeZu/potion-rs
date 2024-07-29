@@ -1,15 +1,8 @@
-use std::{any::Any, sync::Arc};
+use std::any::Any;
 
-use handlebars::Handlebars;
-use minify_html::{minify, Cfg};
-use serde::Serialize;
-use serde_json::{json, Value};
-use sqlx::Postgres;
 use warp::Filter;
 
-use sqlx::Pool;
-
-use crate::{storage::Storage, utility::merge};
+use crate::storage::Storage;
 
 
 pub type RouterInnerContext = Box<dyn Context + Send + Sync>;
