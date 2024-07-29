@@ -8,10 +8,9 @@ use swc_ecma_transforms_typescript::strip;
 use swc_ecma_visit::FoldWith;
 
 
-pub fn ts_to_js(filename: &str, ts_code: &str) -> Result<String, Box<dyn Error>> {
+pub fn ts_to_js(filename: &str, ts_code: &str) -> Result<(String, String), Box<dyn Error>> {
     let cm = Lrc::new(SourceMap::new(swc_common::FilePathMapping::empty()));
     let mut args = PrintArgs::default();
-    args.source_map = SourceMapsConfig::Bool(false);
 
     let compiler = Compiler::new(cm.clone());
 
@@ -46,6 +45,6 @@ pub fn ts_to_js(filename: &str, ts_code: &str) -> Result<String, Box<dyn Error>>
             )
         ?;
 
-        return Ok(ret.code);
+        return Ok((ret.code, ret.map.expect("no sourcemap")));
     });
 }

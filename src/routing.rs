@@ -129,11 +129,14 @@ pub fn typescript_code_gen(
             .file_name()
             .map(|s| s.to_str().unwrap_or("unknown"))
             .unwrap_or("unknown");
+        let map_route = route.replace(".js", ".map.js");
         let content = fs::read_to_string(path)?;
         let output_path = routing_path.join("../dist").join(route.clone());
+        let map_output_path = routing_path.join("../dist").join(map_route.clone());
 
-        let out = ts_to_js(filename, &content).expect("Failed to compile ts file");
+        let (out, map) = ts_to_js(filename, &content).expect("Failed to compile ts file");
         let out = out.as_bytes();
+        let map = map.as_bytes();
 
         let mut out_buffer = Vec::new();
 
@@ -141,8 +144,10 @@ pub fn typescript_code_gen(
             .expect("Failed to minify generated js");
 
         fs::write(output_path.clone(), out_buffer)?;
+        fs::write(map_output_path.clone(), map)?;
 
         script_map.push((route, output_path));
+        script_map.push((map_route, map_output_path));
     }
 
     file_map.append(&mut script_map);
