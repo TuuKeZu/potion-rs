@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{default, sync::Arc};
 
 use handlebars::Handlebars;
 use minify_html::{minify, Cfg};
@@ -26,8 +26,34 @@ impl<T: Serialize> PageValue<T> {
 }
 
 #[derive(Clone)]
+pub struct PageMeta {
+    pub title: Option<String>,
+    pub meta_tags: Vec<(String, String)>
+}
+
+impl default::Default for PageMeta {
+    fn default() -> Self {
+        Self {
+            title: None,
+            meta_tags: vec![]
+        }
+    }
+}
+
+impl PageMeta {
+    pub fn new(title: &str, meta_tags: &[(&str, &str)]) -> Self {
+        Self {
+            title: Some(title.to_string()),
+            meta_tags: meta_tags.into_iter().map(|(key, value)| (key.to_string(), value.to_string())).collect(),
+        }
+    }
+}
+
+
+#[derive(Clone)]
 pub struct Page<T: Serialize> {
     values: Vec<PageValue<T>>,
+    meta: PageMeta,
 
     template: Option<String>,
     parent: Option<String>,
@@ -50,6 +76,7 @@ where
     pub fn new(template: &str, value: T, scope: PageValueScope) -> Self {
         Self {
             values: vec![PageValue::new(value, scope)],
+            meta: PageMeta::default(),
             template: Some(template.to_string()),
             parent: None,
             child: None,
@@ -65,6 +92,7 @@ where
     pub fn default(storage: &Storage) -> Self {
         Self {
             values: vec![],
+            meta: PageMeta::default(),
             template: Some(storage.get_template()),
             parent: Some(storage.get_static_template("base")),
             child: None,
@@ -119,6 +147,11 @@ where
         self
     }
 
+    pub fn with_meta_data(mut self, meta: PageMeta) -> Self {
+        self.meta = meta;
+        self
+    }
+
     pub fn with_navigation(mut self, storage: &Storage) -> Self {
         self.navigation = Some(storage.construct_navigation());
         self
@@ -157,6 +190,8 @@ where
 
         let mut export = json!({
             "STYLE_IMPORTS": style_tree,
+            "TITLE": self.meta.title,
+            "META_TAGS": self.meta.meta_tags,
             "SCRIPT_IMPORTS": scripts_tree
         });
 
