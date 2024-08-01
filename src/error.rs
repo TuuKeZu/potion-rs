@@ -1,5 +1,6 @@
 use std::fmt::{self, Display};
 
+use http::StatusCode;
 use warp::reject::Rejection;
 
 pub const ERROR_CODE_INFO: &[(i16, &str)] = &[
@@ -185,5 +186,11 @@ impl std::error::Error for TypeError {}
 impl Into<Rejection> for TypeError {
     fn into(self) -> Rejection {
         HtmlError::InvalidRequest.new(&self.info).into()
+    }
+}
+
+impl Into<http::StatusCode> for Error {
+    fn into(self) -> http::StatusCode {
+        StatusCode::from_u16(self.code as u16).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR)
     }
 }

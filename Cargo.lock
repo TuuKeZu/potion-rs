@@ -1485,6 +1485,7 @@ name = "potion"
 version = "0.1.0"
 dependencies = [
  "handlebars",
+ "http 1.1.0",
  "log",
  "macros",
  "minify-html",
