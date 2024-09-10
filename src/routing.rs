@@ -82,16 +82,15 @@ pub fn link_static_files(l: &Vec<(String, PathBuf)>) -> BoxedFilter<(warp::filte
 
     let router = l
         .iter()
-        .filter(|(t, _)| t.ends_with(".css") || t.ends_with(".js"))
+        .filter(|(t, _)| t.ends_with(".css") || t.ends_with(".js") || t.ends_with(".js:map"))
         .map(|(t, p)| {
             (
-                t.split(".").map(|t| t.to_string()).collect::<Vec<String>>(),
+                t,
                 p.clone(),
             )
         })
         .fold(root, |f, (r, p)| {
-            let (route, extension) = r.split_at(r.len() - 1);
-            let name = format!("{}.{}", route.join("::"), extension.first().unwrap());
+            let name = resolve_static_file_name(r);
 
             let g = warp::path("static")
                 .and(warp::path(name).and(warp::fs::file(p)))
@@ -101,6 +100,12 @@ pub fn link_static_files(l: &Vec<(String, PathBuf)>) -> BoxedFilter<(warp::filte
         });
 
     router
+}
+
+pub fn resolve_static_file_name(tree: &String) -> String {
+    let tree = tree.split(".").map(|t| t.to_string()).collect::<Vec<String>>();
+    let (route, extension) = tree.split_at(tree.len() - 1);
+    format!("{}.{}", route.join("::"), extension.first().unwrap()).replace("js:map", "js.map")
 }
 
 pub fn link_static_dir(path: PathBuf) -> BoxedFilter<(warp::fs::File,)> {
@@ -129,7 +134,7 @@ pub fn typescript_code_gen(
             .file_name()
             .map(|s| s.to_str().unwrap_or("unknown"))
             .unwrap_or("unknown");
-        let map_route = route.replace(".js", ".map.js");
+        let map_route = route.replace(".js", ".js:map");
         let content = fs::read_to_string(path)?;
         let output_path = routing_path.join("../dist").join(route.clone());
         let map_output_path = routing_path.join("../dist").join(map_route.clone());
@@ -143,7 +148,9 @@ pub fn typescript_code_gen(
         minify(&session, TopLevelMode::Global, out, &mut out_buffer)
             .expect("Failed to minify generated js");
 
-        fs::write(output_path.clone(), out_buffer)?;
+        let source_map_ref = format!("\n//# sourceMappingURL=/static/{}", resolve_static_file_name(&map_route));
+
+        fs::write(output_path.clone(), &[out_buffer, source_map_ref.as_bytes().to_vec()].concat())?;
         fs::write(map_output_path.clone(), map)?;
 
         script_map.push((route, output_path));
