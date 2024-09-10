@@ -135,7 +135,9 @@ pub fn typescript_code_gen(
         let map_route = route.replace(".js", ".js:map");
         let content = fs::read_to_string(path)?;
         let output_path = routing_path.join("../dist").join(route.clone());
-        let map_output_path = routing_path.join("../dist").join(map_route.clone());
+        let map_output_path = routing_path
+            .join("../dist")
+            .join(map_route.replace(".js:map", ".js.map").clone());
 
         let (out, map) = ts_to_js(filename, &content).expect("Failed to compile ts file");
         let out = out.as_bytes();
@@ -159,6 +161,7 @@ pub fn typescript_code_gen(
 
         script_map.push((route, output_path));
         script_map.push((map_route, map_output_path));
+        dbg!(&script_map);
     }
 
     file_map.append(&mut script_map);
