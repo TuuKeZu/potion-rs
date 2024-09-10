@@ -28,14 +28,14 @@ impl<T: Serialize> PageValue<T> {
 #[derive(Clone)]
 pub struct PageMeta {
     pub title: Option<String>,
-    pub meta_tags: Vec<(String, String)>
+    pub meta_tags: Vec<(String, String)>,
 }
 
 impl default::Default for PageMeta {
     fn default() -> Self {
         Self {
             title: None,
-            meta_tags: vec![]
+            meta_tags: vec![],
         }
     }
 }
@@ -44,11 +44,13 @@ impl PageMeta {
     pub fn new(title: &str, meta_tags: &[(&str, &str)]) -> Self {
         Self {
             title: Some(title.to_string()),
-            meta_tags: meta_tags.into_iter().map(|(key, value)| (key.to_string(), value.to_string())).collect(),
+            meta_tags: meta_tags
+                .into_iter()
+                .map(|(key, value)| (key.to_string(), value.to_string()))
+                .collect(),
         }
     }
 }
-
 
 #[derive(Clone)]
 pub struct Page<T: Serialize> {

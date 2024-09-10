@@ -83,12 +83,7 @@ pub fn link_static_files(l: &Vec<(String, PathBuf)>) -> BoxedFilter<(warp::filte
     let router = l
         .iter()
         .filter(|(t, _)| t.ends_with(".css") || t.ends_with(".js") || t.ends_with(".js:map"))
-        .map(|(t, p)| {
-            (
-                t,
-                p.clone(),
-            )
-        })
+        .map(|(t, p)| (t, p.clone()))
         .fold(root, |f, (r, p)| {
             let name = resolve_static_file_name(r);
 
@@ -103,7 +98,10 @@ pub fn link_static_files(l: &Vec<(String, PathBuf)>) -> BoxedFilter<(warp::filte
 }
 
 pub fn resolve_static_file_name(tree: &String) -> String {
-    let tree = tree.split(".").map(|t| t.to_string()).collect::<Vec<String>>();
+    let tree = tree
+        .split(".")
+        .map(|t| t.to_string())
+        .collect::<Vec<String>>();
     let (route, extension) = tree.split_at(tree.len() - 1);
     format!("{}.{}", route.join("::"), extension.first().unwrap()).replace("js:map", "js.map")
 }
@@ -148,9 +146,15 @@ pub fn typescript_code_gen(
         minify(&session, TopLevelMode::Global, out, &mut out_buffer)
             .expect("Failed to minify generated js");
 
-        let source_map_ref = format!("\n//# sourceMappingURL=/static/{}", resolve_static_file_name(&map_route));
+        let source_map_ref = format!(
+            "\n//# sourceMappingURL=/static/{}",
+            resolve_static_file_name(&map_route)
+        );
 
-        fs::write(output_path.clone(), &[out_buffer, source_map_ref.as_bytes().to_vec()].concat())?;
+        fs::write(
+            output_path.clone(),
+            &[out_buffer, source_map_ref.as_bytes().to_vec()].concat(),
+        )?;
         fs::write(map_output_path.clone(), map)?;
 
         script_map.push((route, output_path));
