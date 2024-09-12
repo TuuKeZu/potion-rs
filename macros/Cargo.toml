@@ -13,3 +13,5 @@ channel = "nightly"
 
 [dependencies]
 dotenv = "0.15.0"
+quote = "1"
+syn = "2.0"

@@ -32,7 +32,6 @@ pub fn construct_import_tree(
                 if path.extension().unwrap() == "rs" {
                     let file = entry.file_name().to_str().unwrap().replace(".rs", "");
                     *s += &format!(" pub mod {}; ", &file);
-                    dbg!(&path);
                     l.push(resolve_relative_path(path, true)?);
                 }
             }
@@ -42,21 +41,20 @@ pub fn construct_import_tree(
 }
 
 pub fn construct_router_tree(l: &mut Vec<VecDeque<String>>) -> io::Result<String> {
-    let mut ts = String::from("fn router(hb: Arc<Handlebars<'static>>, pool: Pool<Postgres>) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone { ");
+    let mut ts = String::from("fn router(context: Box<dyn potion::Context + Send + Sync>) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone { ");
 
     let mut tree_list: Vec<&VecDeque<String>> = l.iter().filter(|tree| tree.iter().last().unwrap() == "index").collect();
-    
+
     if let Some(tree) = tree_list.pop() {
         if tree.len() <= 0 {
             panic!("Failed to construct router tree. Tried to link file with invalid path")
         }
         if tree.iter().last().unwrap() == "index" {
             for (i, route) in tree.iter().enumerate() {
-                dbg!(&route, &i);
                 if i == 0 {
                     ts += &format!("warp::path(\"{}\").and(", route)
                 } else if i == tree.len() - 1 {
-                    ts += &format!("routing::{}::initialize( potion::Context::new(hb.clone(), pool.clone(), &[{}]) )", resolve_import_path(tree.clone()), tree.iter().map(|r| format!("\"{r}\"")).collect::<Vec<String>>().join(", "));
+                    ts += &format!("routing::{}::initialize( potion::Router::new(context.clone(), &[{}]))", resolve_import_path(tree.clone()), tree.iter().map(|r| format!("\"{r}\"")).collect::<Vec<String>>().join(", "));
                 } else {
                     ts += &format!("warp::path(\"{}\").and(", route)
                 }
@@ -69,13 +67,12 @@ pub fn construct_router_tree(l: &mut Vec<VecDeque<String>>) -> io::Result<String
     }
 
     for tree in tree_list {
-        dbg!(&tree);
         if tree.iter().last().unwrap() == "index" {
             for (i, route) in tree.iter().enumerate() {
                 if i == 0 {
                     ts += &format!(".or(warp::path(\"{}\").and(", route)
                 } else if i == tree.len() - 1 {
-                    ts += &format!("routing::{}::initialize( potion::Context::new(hb.clone(), pool.clone(), &[{}]) )", resolve_import_path(tree.clone()), tree.iter().map(|r| format!("\"{r}\"")).collect::<Vec<String>>().join(", "));
+                    ts += &format!("routing::{}::initialize( potion::Router::new(context.clone(), &[{}]))", resolve_import_path(tree.clone()), tree.iter().map(|r| format!("\"{r}\"")).collect::<Vec<String>>().join(", "));
                 } else {
                     ts += &format!("warp::path(\"{}\").and(", route)
                 }

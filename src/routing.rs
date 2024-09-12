@@ -1,5 +1,6 @@
 use std::{
-    fs::{self, DirEntry},
+    fs,
+    fs::DirEntry,
     io,
     path::{Path, PathBuf},
 };
@@ -14,7 +15,7 @@ pub fn initialize_routing(
     dev: bool,
 ) -> io::Result<(Handlebars<'static>, BoxedFilter<(warp::filters::fs::File,)>)> {
     let mut file_map = map_routing_tree(path)?;
-    
+
     #[cfg(feature = "typescript")]
     typescript_code_gen(&PathBuf::from(path), &mut file_map)?;
 
@@ -28,7 +29,11 @@ pub fn initialize_routing(
 
 fn map_routing_tree(path: &str) -> io::Result<Vec<(String, PathBuf)>> {
     let mut l: Vec<DirEntry> = vec![];
-    visit_dirs(&Path::new(path).join(Path::new("routing")), &mut l, &["hbs", "css", "ts"])?;
+    visit_dirs(
+        &Path::new(path).join(Path::new("routing")),
+        &mut l,
+        &["hbs", "css", "ts"],
+    )?;
     visit_dirs(
         &Path::new(path).join(Path::new("static")),
         &mut l,
@@ -77,17 +82,11 @@ pub fn link_static_files(l: &Vec<(String, PathBuf)>) -> BoxedFilter<(warp::filte
 
     let router = l
         .iter()
-        .filter(|(t, _)| t.ends_with(".css") || t.ends_with(".js"))
-        .map(|(t, p)| {
-            (
-                t.split(".").map(|t| t.to_string()).collect::<Vec<String>>(),
-                p.clone(),
-            )
-        })
+        .filter(|(t, _)| t.ends_with(".css") || t.ends_with(".js") || t.ends_with(".js:map"))
+        .map(|(t, p)| (t, p.clone()))
         .fold(root, |f, (r, p)| {
-            let (route, extension) = r.split_at(r.len() - 1);
-            let name = format!("{}.{}", route.join("::"), extension.first().unwrap());
-            
+            let name = resolve_static_file_name(r);
+
             let g = warp::path("static")
                 .and(warp::path(name).and(warp::fs::file(p)))
                 .boxed();
@@ -98,6 +97,15 @@ pub fn link_static_files(l: &Vec<(String, PathBuf)>) -> BoxedFilter<(warp::filte
     router
 }
 
+pub fn resolve_static_file_name(tree: &String) -> String {
+    let tree = tree
+        .split(".")
+        .map(|t| t.to_string())
+        .collect::<Vec<String>>();
+    let (route, extension) = tree.split_at(tree.len() - 1);
+    format!("{}.{}", route.join("::"), extension.first().unwrap()).replace("js:map", "js.map")
+}
+
 pub fn link_static_dir(path: PathBuf) -> BoxedFilter<(warp::fs::File,)> {
     warp::path("static")
         .and(warp::fs::dir(path.join(Path::new("static"))))
@@ -105,9 +113,12 @@ pub fn link_static_dir(path: PathBuf) -> BoxedFilter<(warp::fs::File,)> {
 }
 
 #[cfg(feature = "typescript")]
-pub fn typescript_code_gen(routing_path: &Path, file_map: &mut Vec<(String, PathBuf)>) -> io::Result<()> {
-    use minify_js::{Session, TopLevelMode, minify};
+pub fn typescript_code_gen(
+    routing_path: &Path,
+    file_map: &mut Vec<(String, PathBuf)>,
+) -> io::Result<()> {
     use crate::wsc::ts_to_js;
+    use minify_js::{minify, Session, TopLevelMode};
 
     let session = Session::new();
     let mut script_map = vec![];
@@ -117,20 +128,40 @@ pub fn typescript_code_gen(routing_path: &Path, file_map: &mut Vec<(String, Path
         .filter(|(t, _)| t.ends_with(".ts"))
         .map(|(t, p)| (format!("{}.js", t.replace(".ts", "")), p))
     {
-        let filename = path.file_name().map(|s| s.to_str().unwrap_or("unknown")).unwrap_or("unknown");
+        let filename = path
+            .file_name()
+            .map(|s| s.to_str().unwrap_or("unknown"))
+            .unwrap_or("unknown");
+        let map_route = route.replace(".js", ".js:map");
         let content = fs::read_to_string(path)?;
         let output_path = routing_path.join("../dist").join(route.clone());
+        let map_output_path = routing_path
+            .join("../dist")
+            .join(map_route.replace(".js:map", ".js.map").clone());
 
-        let out = ts_to_js(filename, &content).expect("Failed to compile ts file");
+        let (out, map) = ts_to_js(filename, &content).expect("Failed to compile ts file");
         let out = out.as_bytes();
+        let map = map.as_bytes();
 
         let mut out_buffer = Vec::new();
 
-        minify(&session, TopLevelMode::Global, out, &mut out_buffer).expect("Failed to minify generated js");
+        minify(&session, TopLevelMode::Global, out, &mut out_buffer)
+            .expect("Failed to minify generated js");
 
-        fs::write(output_path.clone(), out_buffer)?;
+        let source_map_ref = format!(
+            "\n//# sourceMappingURL=/static/{}",
+            resolve_static_file_name(&map_route)
+        );
+
+        fs::write(
+            output_path.clone(),
+            &[out_buffer, source_map_ref.as_bytes().to_vec()].concat(),
+        )?;
+        fs::write(map_output_path.clone(), map)?;
 
         script_map.push((route, output_path));
+        script_map.push((map_route, map_output_path));
+        dbg!(&script_map);
     }
 
     file_map.append(&mut script_map);

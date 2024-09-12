@@ -1,5 +1,6 @@
 use std::fmt::{self, Display};
 
+use http::StatusCode;
 use warp::reject::Rejection;
 
 pub const ERROR_CODE_INFO: &[(i16, &str)] = &[
@@ -9,6 +10,8 @@ pub const ERROR_CODE_INFO: &[(i16, &str)] = &[
     (403, "Permission denied; You were not allowed to perform this action. Unless you were trying to do something you are not allowed to, you should report this below: "),
     (500, "Internal server error, this error was automatically reported to our system. The server responded with the following information about the issue: ")
 ];
+
+pub const VALID_ERROR_CODES: &[i16] = &[401, 403];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /**
@@ -114,10 +117,19 @@ impl warp::reject::Reject for Error {}
 impl warp::Reply for Error {
     fn into_response(self) -> warp::reply::Response {
         if let Some(url) = self.redirect {
-            return warp::redirect(warp::http::Uri::from_static(url.leak())).into_response();
+            return warp::reply::with_header(
+                warp::redirect(warp::http::Uri::from_static(url.leak())),
+                "Cache-Control",
+                "no-cache, must-revalidate",
+            )
+            .into_response();
         };
         let code = self.code;
         let info = self.info.unwrap_or(String::from("Unknown error"));
+
+        if !VALID_ERROR_CODES.contains(&code) {
+            log::error!("Error: {:?}", code)
+        }
 
         let description = ERROR_CODE_INFO
             .iter()
@@ -144,8 +156,9 @@ impl warp::Reply for Error {
 
                     </nav>
                     <section class="content">
-                        <h1>{info}</h1>
+                        <h1>{code}</h1>
                         <p>{description}</p>
+                        <p>{info}</p>
                     </section>
                 </body>
             </html>
@@ -178,5 +191,11 @@ impl std::error::Error for TypeError {}
 impl Into<Rejection> for TypeError {
     fn into(self) -> Rejection {
         HtmlError::InvalidRequest.new(&self.info).into()
+    }
+}
+
+impl Into<http::StatusCode> for Error {
+    fn into(self) -> http::StatusCode {
+        StatusCode::from_u16(self.code as u16).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR)
     }
 }
