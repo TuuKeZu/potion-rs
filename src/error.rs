@@ -1,40 +1,24 @@
-use std::fmt::{self, Display};
+use std::{fmt::{self, Debug, Display}, marker::PhantomData};
 
-use http::StatusCode;
-use warp::reject::Rejection;
+use http::{Response, StatusCode};
+use warp::{reject::Rejection};
+pub trait IntoErrorPage {
+    fn into_html(error: &Error) -> String;
+}
 
-pub const ERROR_CODE_INFO: &[(i16, &str)] = &[
-    (400, "Invalid request; The request failed to contain or contained invalid payload. This shouldn't happen with normal use, so take your time to report this issue if you did not modify request parameters by hand.\
-     The server responded with the following information about the issue: "),
-    (401, "Invalid credentials; The browser should redirect you in a second.... if it does,'t this is a bug! Please report this below: "),
-    (403, "Permission denied; You were not allowed to perform this action. Unless you were trying to do something you are not allowed to, you should report this below: "),
-    (500, "Internal server error, this error was automatically reported to our system. The server responded with the following information about the issue: ")
-];
+pub trait ErrorPage: IntoErrorPage + Debug + Sync + Send {}
 
-pub const VALID_ERROR_CODES: &[i16] = &[401, 403];
+#[derive(Debug)]
+struct DefaultErrorPage {}
+impl IntoErrorPage for DefaultErrorPage {
+    fn into_html(error: &Error) -> String {
+        format!("Error {}: {:#?}", error.code, error.info)
+    }
+}
+
+impl ErrorPage for DefaultErrorPage {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-/**
-   ### Enum for representing the most common html errorcodes
-   Implements following
-   - `std::error::Error`
-
-   Can be converted into following
-   - `potion::Error`
-
-   Using methods `.new()` or `.default()`
-
-   ### Example usage
-   ```
-       fn test() -> Result<(), potion::Error> {
-           return Err(HtmlError::Unauthorized.default())
-       }
-
-       fn test2() -> Result<(), potion::Error> {
-           return Err(HtmlError::Unauthorized.new("Invalid password"))
-       }
-   ```
-*/
 pub enum HtmlError {
     Unauthorized,
     InvalidRequest,
@@ -43,9 +27,6 @@ pub enum HtmlError {
 }
 
 impl HtmlError {
-    /**
-     * Convert into `potion::Error` with default information
-     */
     pub fn default(self) -> Error {
         match self {
             HtmlError::InvalidSession => Error::new(401, "Invalid credentials", None),
@@ -55,9 +36,6 @@ impl HtmlError {
         }
     }
 
-    /**
-     * Convert into `potion::Error` with information
-     */
     pub fn new(self, info: &str) -> Error {
         match self {
             Self::InvalidSession => Error::new(401, info, None),
@@ -67,9 +45,6 @@ impl HtmlError {
         }
     }
 
-    /**
-     * Convert into `potion::Error` with information
-     */
     pub fn redirect(self, info: &str, redirect: &str) -> Error {
         match self {
             HtmlError::Unauthorized => Error::new(401, info, Some(redirect.to_string())),
@@ -88,11 +63,58 @@ impl Display for HtmlError {
 
 impl std::error::Error for HtmlError {}
 
-#[derive(Debug, Clone)]
+
+#[derive(Debug)]
+pub struct CustomError<P> {
+    _inner: Error,
+    _kind: PhantomData<P>
+}
+
+impl<P: ErrorPage> From<Error> for CustomError<P> {
+    fn from(value: Error) -> Self {
+        Self {
+            _inner: value,
+            _kind: PhantomData
+        }
+    }
+}
+
+impl<P: ErrorPage> Display for CustomError<P> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}: {:?})", self._inner.code, &self._inner.info)
+    }
+}
+
+impl<P: ErrorPage> std::error::Error for CustomError<P> {}
+impl<P: ErrorPage + 'static> warp::reject::Reject for CustomError<P> {}
+
+
+impl<P: ErrorPage> warp::Reply for CustomError<P> {
+    fn into_response(self) -> warp::reply::Response {
+        if let Some(url) = self._inner.redirect {
+            return warp::reply::with_header(
+                warp::redirect(warp::http::Uri::from_static(url.leak())),
+                "Cache-Control",
+                "no-cache, must-revalidate",
+            )
+            .into_response();
+        };
+
+        warp::reply::html(P::into_html(&self._inner)).into_response()
+    }
+}
+
+impl<P: ErrorPage> Into<http::StatusCode> for CustomError<P> {
+    fn into(self) -> http::StatusCode {
+        StatusCode::from_u16(self._inner.code as u16).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR)
+    }
+}
+
+#[derive(Debug)]
 pub struct Error {
     pub code: i16,
     pub info: Option<String>,
-    pub redirect: Option<String>,
+    pub redirect: Option<String>
 }
 
 impl Error {
@@ -100,7 +122,23 @@ impl Error {
         Self {
             code,
             info: Some(info.to_string()),
-            redirect,
+            redirect
+        }
+    }
+
+    pub fn custom(code: i16, info: &str, redirect: Option<String>) -> Self {
+        Self {
+            code,
+            info: Some(info.to_string()),
+            redirect
+        }
+    }
+
+    pub fn with_page(self) -> Self {
+        Self {
+            code: self.code,
+            info: self.info,
+            redirect: self.redirect
         }
     }
 }
@@ -124,73 +162,8 @@ impl warp::Reply for Error {
             )
             .into_response();
         };
-        let code = self.code;
-        let info = self.info.unwrap_or(String::from("Unknown error"));
 
-        if !VALID_ERROR_CODES.contains(&code) {
-            log::error!("Error: {:?}", code)
-        }
-
-        let description = ERROR_CODE_INFO
-            .iter()
-            .find_map(|(code, info)| {
-                if &self.code != code {
-                    return None;
-                }
-
-                Some(*info)
-            })
-            .unwrap_or("Unknown error");
-
-        warp::reply::html(format!(
-            r#"
-            <!DOCTYPE html>
-            <html>
-                <head>
-                    <title>Error - {code}</title>
-                    <link rel="stylesheet" href="/static/index.css" />
-                </head>
-                <body>
-                    <div class="background"></div>
-                    <nav>
-
-                    </nav>
-                    <section class="content">
-                        <h1>{code}</h1>
-                        <p>{description}</p>
-                        <p>{info}</p>
-                    </section>
-                </body>
-            </html>
-        "#
-        ))
-        .into_response()
-    }
-}
-
-#[derive(Debug)]
-pub struct TypeError {
-    info: String,
-}
-
-impl TypeError {
-    pub fn new(info: &str) -> Self {
-        Self {
-            info: info.to_string(),
-        }
-    }
-}
-
-impl Display for TypeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({})", self.info)
-    }
-}
-
-impl std::error::Error for TypeError {}
-impl Into<Rejection> for TypeError {
-    fn into(self) -> Rejection {
-        HtmlError::InvalidRequest.new(&self.info).into()
+        warp::reply::html(DefaultErrorPage::into_html(&self)).into_response()
     }
 }
 

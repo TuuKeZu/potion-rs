@@ -20,38 +20,33 @@ Flask inspired general purpose fullstack web-framework with file-system based ro
 
 `src/main.rs`
 ```rust
+use std::sync::Arc;
+use warp::Filter;
+
+use handlebars::Handlebars;
+
 // Derive `potion::IntoContext` for global state
 #[derive(Clone, potion::IntoContext)]
 pub struct RouterContext {
     pub hb: Arc<Handlebars<'static>>,
-    pub db: Pool<Postgres>
+    // e.g. Database connection
 }
 
-// Generate routing during compilation phase. All .rs files are automatically included during compilation
 potion::routing!();
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv::dotenv().ok();
 
-    // Initialize file-system routing
-    let (mut hb, static_router) = potion::initialize_routing(
-        &std::env::var("POTION_PROJECT_DIR").expect("Tried to read misconfigured .env file"),
+    let (hb, static_router) = potion::initialize_routing(
+        &std::env::var("POTION_PROJECT_DIR")?,
         true,
     )?;
 
-    // Create postgres connection-pool
-    let pool = sqlx::postgres::PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&std::env::var("POSTGRES_URL").expect("Tried to read misconfigured .env file"))
-        .await?;
+    let context = Box::new(RouterContext { hb: Arc::new(hb) });
 
-    // Initialize context
-    let context = Box::new(RsContext { hb: Arc::new(hb), db: pool.clone() });
-
-    // Generate and server routing
     let routes = router(context)
-        .or(static_router);
+    .or(static_router);
 
     warp::serve(routes).run(([0, 0, 0, 0], 3030)).await;
 
@@ -61,6 +56,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 `src/routing/hello/index.rs`
 ```rust
+use crate::RouterContext;
+use warp::Filter;
+
+
 pub fn initialize(router: potion::Router) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     // Access global state
     let context = router.downcast::<RouterContext>();
