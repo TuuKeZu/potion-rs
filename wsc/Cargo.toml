@@ -7,9 +7,12 @@ edition = "2021"
 [lib]
 
 [dependencies]
-swc = "0.273.6"
-swc_common = "0.33.17"
-swc_ecma_ast = "0.112.2"
-swc_ecma_parser = { version = "0.143.3", features = ["verify", "typescript"] }
-swc_ecma_transforms_typescript = "0.188.5"
-swc_ecma_visit = "0.98.2"
+anyhow = "1.0.95"
+swc = "13.0.1"
+swc_common = "6.1.1"
+swc_ecma_ast = "6.1.0"
+swc_ecma_codegen = "6.1.0"
+swc_ecma_parser = { version = "8.0.2", features = ["verify", "typescript"] }
+swc_ecma_transforms_base = "9.0.1"
+swc_ecma_transforms_typescript = "9.0.0"
+swc_ecma_visit = "6.0.0"
