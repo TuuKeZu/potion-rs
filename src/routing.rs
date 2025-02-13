@@ -161,7 +161,6 @@ pub fn typescript_code_gen(
 
         script_map.push((route, output_path));
         script_map.push((map_route, map_output_path));
-        dbg!(&script_map);
     }
 
     file_map.append(&mut script_map);

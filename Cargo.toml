@@ -13,7 +13,7 @@ routing = ["macros"]
 typescript = ["wsc", "minify-js"]
 
 [dependencies]
-handlebars = "5.1.2"
+handlebars = "6.1.0"
 serde = "1.0.197"
 serde_json = "1.0.115"
 warp = "0.3.7"

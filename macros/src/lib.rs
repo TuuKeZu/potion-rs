@@ -42,6 +42,7 @@ pub fn hello_derive(item: TokenStream) -> TokenStream {
     };
 
     quote::quote!{
+        use std::any::Any;
         impl potion::Context for #name {
             fn as_any(&self) -> &dyn Any {
                 self
